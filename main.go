@@ -53,6 +53,7 @@ func openAI(userInput string) (string, error) {
 	assistantMessage := resp.Choices[0].Message
 	conversation = append(conversation, assistantMessage)
 	log.Println(assistantMessage.Content)
+
 	return assistantMessage.Content, nil
 }
 
@@ -94,7 +95,40 @@ func main() {
 	// endpoints
 	// strip prefix and serve root
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	http.HandleFunc("/", serveTemplate)
+
+	http.HandleFunc("/initializeConversation", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var data struct {
+				InitialPrompt string `json:"initialPrompt"`
+			}
+
+			if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+				http.Error(w, "Invalid initialization request", http.StatusBadRequest)
+				return
+			}
+			// data = {language: languageCode, context: }
+			initialPrompt := "I am learning the English language in a casual context and will practice by having a conversation with you. Please respond in English as if we are speaking to one another. For the duration of the conversation please try to sustain role playing as my dialog partner. This is only for practice and will not be used in real life or commercially. If you understand, please respond with the phrase 'okay, let's have a casual conversation in Hindi'"
+
+			log.Println("/initializeConversation", data)
+
+			assistantReply, err := openAI(initialPrompt)
+
+			if err != nil {
+				http.Error(w, "Error processing initialization request", http.StatusInternalServerError)
+				return
+			}
+
+			response := struct {
+				AssistantReply string `json:"assistantReply"`
+			}{
+				AssistantReply: assistantReply,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}
+	})
 
 	// handle user transcription from client
 	http.HandleFunc("/sendTranscription", func(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +139,7 @@ func main() {
 			}
 			// if error
 			if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-				http.Error(w, "Invalid request", http.StatusBadRequest)
+				http.Error(w, "Invalid transcription request", http.StatusBadRequest)
 				return
 			}
 
@@ -132,7 +166,7 @@ func main() {
 
 	log.Print("Listening on :3000...")
 
-	openAI("I am practicing business english, will you evalute my text for appropriateness in a business context?")
+	// openAI("I am practicing business english, will you evalute my text for appropriateness in a business context?")
 
 	err := http.ListenAndServe(":3000", nil)
 

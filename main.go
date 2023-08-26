@@ -12,6 +12,11 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
+// conversation := [
+// 	{"role": "system", "content": "You are helping the user improve their english language skills in a business context."},
+// 	{"role": "user", "content: "}
+// ]
+
 // use godot package to load/read the .env file and
 // return the value of the key
 func goDotEnvVariable(key string) string {
@@ -27,21 +32,31 @@ func goDotEnvVariable(key string) string {
 }
 
 func openAi() {
-	client := openai.NewClient(goDotEnvVariable("GPT_API_KEY"))
-	ctx := context.Background()
-
-	req := openai.AudioRequest{
-		Model:    openai.Whisper1,
-		FilePath: "recording.mp3",
-	}
-
-	resp, err := client.CreateTranscription(ctx, req)
+	token := goDotEnvVariable("GPT_API_KEY")
+	client := openai.NewClient(token)
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "I am practicing the english langauge in a business context. Is the following text appropriate for a business context? 'Sure man, I'll be there later get off my back'",
+				},
+			},
+		},
+	)
 
 	if err != nil {
-		log.Printf("Transcription error: %v\n", err)
+		log.Printf("ChatCompletion error: %v\n", err)
 		return
 	}
-	log.Println(resp.Text)
+
+	if len(resp.Choices) > 0 {
+		log.Printf("Generated Text: %s", resp.Choices[0].Message.Content)
+	} else {
+		log.Println("No choices generated.")
+	}
 
 }
 
@@ -49,6 +64,8 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 	http.HandleFunc("/", serveTemplate)
+	openAi()
+
 	log.Print("Listening on :3000...")
 
 	err := http.ListenAndServe(":3000", nil)
@@ -70,9 +87,6 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	key := goDotEnvVariable("GPT_API_KEY")
-
-	log.Println("here", key)
 
 	// Return a 404 if the request is for a directory
 	if info.IsDir() {

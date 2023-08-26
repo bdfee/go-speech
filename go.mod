@@ -4,5 +4,5 @@ go 1.16
 
 require (
 	github.com/joho/godotenv v1.5.1
-	github.com/sashabaranov/go-openai v1.14.2
+	github.com/sashabaranov/go-openai v1.4.1
 )

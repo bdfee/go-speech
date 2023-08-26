@@ -46,9 +46,10 @@ languageSelect.addEventListener('change', function() {
   console.log('Language changed to: ' + recognition.lang);
 });
 
-recognition.onresult = function() {
+recognition.onresult = function(event) {
   const text = event.results[0][0].transcript;
-  output.textContent = 'Result received: ' + text + '.';
+  sendTranscription(text)
+  output.textContent = text;
 };
 
 recognition.onnomatch = function() {
@@ -58,3 +59,13 @@ recognition.onnomatch = function() {
 recognition.onerror = function(event) {
   output.textContent = 'Error occurred in recognition: ' + event.error;
 };
+
+const sendTranscription = (transcribedText) => {
+  fetch("/sendTranscription", {
+    method: "POST",
+    body: JSON.stringify({ transcribedText }),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+}

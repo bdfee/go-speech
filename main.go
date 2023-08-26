@@ -8,23 +8,24 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	// "github.com/joho/godotenv"
+
+	"github.com/joho/godotenv"
 	// openai "github.com/sashabaranov/go-openai"
 )
 
 // use godot package to load/read the .env file and
 // return the value of the key
-// func goDotEnvVariable(key string) string {
+func goDotEnvVariable(key string) string {
 
-// 	// load .env file
-// 	err := godotenv.Load(".env")
+	// load .env file
+	err := godotenv.Load(".env")
 
-// 	if err != nil {
-// 		log.Fatalf("Error loading .env file")
-// 	}
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
 
-// 	return os.Getenv(key)
-// }
+	return os.Getenv(key)
+}
 
 // func openAi() {
 // 	client := openai.NewClient(goDotEnvVariable("GPT_API_KEY"))
@@ -50,7 +51,9 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 	http.HandleFunc("/", serveTemplate)
 	log.Print("Listening on :3000...")
+
 	err := http.ListenAndServe(":3000", nil)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,6 +71,9 @@ func serveTemplate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	key := goDotEnvVariable("GPT_API_KEY")
+
+	log.Println("here", key)
 
 	// Return a 404 if the request is for a directory
 	if info.IsDir() {

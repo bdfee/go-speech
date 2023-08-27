@@ -1,1 +1,4 @@
-body {color: #c0392b}
+.assistant {
+  color: #c0392b;
+  margin-left: 1em;
+}

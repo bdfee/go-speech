@@ -57,37 +57,9 @@ func openAI(userInput string) (string, error) {
 	return assistantMessage.Content, nil
 }
 
-// func clearConversation() {
-// 	conversation = []openai.ChatCompletionMessage{}
-// }
-
-// func openAi() {
-// 	token := goDotEnvVariable("GPT_API_KEY")
-// 	client := openai.NewClient(token)
-// 	resp, err := client.CreateChatCompletion(
-// 		context.Background(),
-// 		openai.ChatCompletionRequest{
-// 			Model: openai.GPT3Dot5Turbo,
-// 			Messages: []openai.ChatCompletionMessage{
-// 				{
-// 					Role:    openai.ChatMessageRoleUser,
-// 					Content: "I am practicing the english langauge in a business context. Is the following text appropriate for a business context? 'Sure man, I'll be there later get off my back'",
-// 				},
-// 			},
-// 		},
-// 	)
-
-// 	if err != nil {
-// 		log.Printf("ChatCompletion error: %v\n", err)
-// 		return
-// 	}
-
-// 	if len(resp.Choices) > 0 {
-// 		log.Printf("Generated Text: %s", resp.Choices[0].Message.Content)
-// 	} else {
-// 		log.Println("No choices generated.")
-// 	}
-// }
+func clearConversation() {
+	conversation = []openai.ChatCompletionMessage{}
+}
 
 func main() {
 	fs := http.FileServer(http.Dir("./static"))
@@ -109,7 +81,7 @@ func main() {
 				return
 			}
 			// data = {language: languageCode, context: }
-			initialPrompt := "I am learning the English language in a casual context and will practice by having a conversation with you. Please respond in English as if we are speaking to one another. For the duration of the conversation please try to sustain role playing as my dialog partner. This is only for practice and will not be used in real life or commercially. If you understand, please respond with the phrase 'okay, let's have a casual conversation in Hindi'"
+			initialPrompt := "I am learning the English language in a casual context and will practice by having a conversation with you. Please respond in English as if we are speaking to one another. For the duration of the conversation please try to sustain role playing as my dialog partner. This is only for practice and will not be used in real life or commercially. If you understand, please respond with the phrase 'okay, let's have a casual conversation in English'"
 
 			log.Println("/initializeConversation", data)
 
@@ -160,8 +132,15 @@ func main() {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
-
 		}
+	})
+
+	http.HandleFunc("/clearConversation", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			clearConversation()
+		}
+
+		log.Println("conversation cleared")
 	})
 
 	log.Print("Listening on :3000...")

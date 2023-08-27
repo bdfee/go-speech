@@ -1,64 +1,134 @@
 var SpeechRecognition = SpeechRecognition || webkitSpeechRecognition
+
+// page elements 
 const languageSelect = document.getElementById('language-select');
+const dialogElement = document.getElementById('dialog');
+const beginBtn = document.getElementById('begin-button')
+const startBtn = document.getElementById('start-button');
+const stopBtn = document.getElementById('stop-button');
+const clearBtn = document.getElementById('clear-button');
 
-// append langauge select options to the html
-window.speechSynthesis.onvoiceschanged = function() {
+// synth
+const synth = window.speechSynthesis
+
+// append available langauges from web speech api as option els
+synth.onvoiceschanged = () => {
   const voices = speechSynthesis.getVoices();
-
-  const supportedLanguages = voices.map(function(voice) {
-    return voice.lang;
-  });
-
-  const uniqueSupportedLanguages = [...new Set(supportedLanguages)].sort();
-
-  uniqueSupportedLanguages.forEach(lang => {
-    const option = document.createElement('option');
-    option.textContent = lang;
-    if (lang === "en-US") {
-      option.setAttribute("selected", true)
-    }
-    languageSelect.appendChild(option);
+  // map set sort unique voices
+  [...new Set(voices
+    .map(({ lang }) => lang))]
+    .sort()
+    .forEach(lang => {
+      // create option el per lang
+      const option = document.createElement('option');
+      option.value = lang;
+      option.textContent = lang;
+      // set english to selected lang
+      if (lang === "en-US") {
+        option.setAttribute("selected", true)
+      }
+      languageSelect.appendChild(option);
   });
 };
 
+// recognition
 const recognition = new SpeechRecognition();
-
-recognition.continuous = false;
+recognition.continuous = true;
 recognition.lang = languageSelect.value;
 recognition.interimResults = false;
 recognition.maxAlternatives = 1;
 
-const startBtn = document.getElementById('start-button');
-const stopBtn = document.getElementById('stop-button');
-let output = document.getElementById('output');
-
-startBtn.onclick = function() {
-  recognition.start();
-};
-
-stopBtn.onclick = function() {
-  recognition.stop();
-};
-
-languageSelect.addEventListener('change', function() {
-  recognition.lang = languageSelect.value;
-  console.log('Language changed to: ' + recognition.lang);
-});
-
-recognition.onresult = function(event) {
+recognition.onresult = (event) => {
   const text = event.results[0][0].transcript;
   sendTranscription(text)
-  output.textContent = text;
+  appendMessage(text)
 };
 
-recognition.onnomatch = function() {
-  output.textContent = "I didn't recognise the speech";
-};
+recognition.onnomatch = () => appendMessage("I didn't recognise the speech")
+recognition.onerror = (event) => appendMessage('Error occurred in recognition: ' + event.error)
 
-recognition.onerror = function(event) {
-  output.textContent = 'Error occurred in recognition: ' + event.error;
-};
+// layout listeners and handlers
+startBtn.onclick = () => {
+  configureLayout("stop")
+  recognition.start()
+}
 
+stopBtn.onclick = () => {
+  recognition.abort()
+  synth.cancel()
+  configureLayout("begin")
+}
+
+clearBtn.onclick = () => {
+  recognition.abort()
+  synth.cancel()
+  clearConversation()
+  clearMessages()
+}
+
+languageSelect.addEventListener('change', () =>
+  recognition.lang = languageSelect.value
+)
+
+const handleConversationInit = (event) => {
+  event.preventDefault()
+
+  sendConversationInit({
+    language: languageSelect.value,
+    conversationContext: document.getElementById('conversation-context')
+  })
+
+  configureLayout("begin")
+}
+
+const configureLayout = (string) => {
+  switch (string) {
+    case "initialize": {
+      beginBtn.removeAttribute('disabled')
+      startBtn.setAttribute('disabled', true)
+      stopBtn.setAttribute('disabled', true)
+      clearBtn.setAttribute('disabled', true)
+      break
+    }
+    case "begin": {
+      beginBtn.setAttribute('disabled', true)
+      stopBtn.setAttribute('disabled', true)
+      startBtn.removeAttribute('disabled')
+      break
+    }
+    case "stop": {
+      startBtn.setAttribute('disabled', true)
+      stopBtn.removeAttribute('disabled')
+      clearBtn.removeAttribute('disabled')
+    }
+    default: {
+      console.error('something went wrong in the layout switch')
+    }
+  }
+} 
+
+// dialog
+const appendMessage = (text, assistant = false) => {
+  const paragraphElement = document.createElement('p');
+  paragraphElement.textContent = text;
+  if (assistant) paragraphElement.className = "assistant"
+  dialogElement.appendChild(paragraphElement);
+}
+
+const clearMessages = () => dialogElement.replaceChildren()
+
+const speechSynth = (text) => {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text)
+    // language for utterance
+    // utterance.lang = "hi-IN"
+    synth.speak(utterance)
+  } else {
+    console.error('web speech api synth not in window')
+  }
+}
+
+// services
 const sendTranscription = (transcribedText) => {
   fetch("/sendTranscription", {
     method: "POST",
@@ -73,31 +143,15 @@ const sendTranscription = (transcribedText) => {
     return response.json(); // Parse the JSON response
   }).then(({ assistantReply }) => {
     // Handle the data received from the server
-    const dialogElement = document.getElementById('dialog');
-    const paragraphElement = document.createElement('p');
-    paragraphElement.textContent = assistantReply;
-    dialogElement.appendChild(paragraphElement);
+    appendMessage(assistantReply, true)
     speechSynth(assistantReply)
-    console.log("Assistant's reply:", assistantReply);
   }).catch(error => {
     console.error("Fetch error:", error);
   });
 }
 
-const speechSynth = (text) => {
-  if ('speechSynthesis' in window) {
-    const synth = window.speechSynthesis
-    const utterance = new SpeechSynthesisUtterance(text)
-    // utterance.lang = "hi-IN"
-    synth.speak(utterance)
-  } else {
-    console.error('web speech api synth not in window')
-  }
-}
-
-
 const sendConversationInit = (data) => {
-  fetch("initializeConversation", {
+  fetch("/initializeConversation", {
     method: "POST",
     body: JSON.stringify({ data }),
     headers: {
@@ -106,12 +160,14 @@ const sendConversationInit = (data) => {
   })
 }
 
-const handleSubmit = (event) => {
-  event.preventDefault()
-
-  sendConversationInit({
-    language: languageSelect.value,
-    conversationContext: document.getElementById('conversation-context')
+const clearConversation = () => {
+  console.log('fired clear conversation')
+  fetch("/clearConversation", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
   })
-
 }
+
+configureLayout("initialize")

@@ -59,7 +59,6 @@ recognition.onerror = ({ error }) => {
   } else {
     statusMessage.innerHTML = 'Recognition is disabled, click start to resume conversation'
   }
-
 }
 
 recognition.onaudiostart = () => {
@@ -85,6 +84,7 @@ clearBtn.onclick = () => {
   synth.cancel()
   clearConversation()
   clearMessages()
+  statusMessage.innerHTML = 'Conversation Cleared'
 }
 
 languageSelect.addEventListener('change', () =>
@@ -116,7 +116,7 @@ const speechSynth = (text) => {
     const utterance = new SpeechSynthesisUtterance(text)
     
     // utterance config here
-    // utterance.lang = "hi-IN"
+    utterance.lang = languageSelect.value
     synth.speak(utterance)
     utterance.onend = () => {
       if (!stopConversation) recognition.start()

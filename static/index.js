@@ -1,15 +1,17 @@
 var SpeechRecognition = SpeechRecognition || webkitSpeechRecognition
 
 // page elements 
-const languageSelect = document.getElementById('language-select');
+const languageSelect = document.getElementById('language-select')
 const levelSelect = document.getElementById('language-level')
 const contextSelect = document.getElementById('conversation-context')
-const dialogElement = document.getElementById('dialog');
+const dialogElement = document.getElementById('dialog')
 const beginBtn = document.getElementById('begin-button')
-const startBtn = document.getElementById('start-button');
-const stopBtn = document.getElementById('stop-button');
-const clearBtn = document.getElementById('clear-button');
+const startBtn = document.getElementById('start-button')
+const stopBtn = document.getElementById('stop-button')
+const clearBtn = document.getElementById('clear-button')
 const statusMessage = document.getElementById('status')
+
+let stopConversation = false
 
 // speech synth
 const synth = window.speechSynthesis
@@ -43,12 +45,22 @@ recognition.maxAlternatives = 1;
 
 recognition.onresult = (event) => {
   const text = event.results[0][0].transcript;
-  sendTranscription(text)
-  appendMessage(text)
+  dialogInput(text)
 };
 
-recognition.onnomatch = () => appendMessage("I didn't recognise the speech")
-recognition.onerror = (event) => appendMessage('Error occurred in recognition: ' + event.error)
+recognition.onnomatch = () => {
+  dialogResponse('sorry I did not understand that, will you try again?')
+}
+recognition.onerror = ({ error }) => {
+  if (error === 'aborted') {
+    statusMessage.innerHTML = 'Speech recognition and synthesis are disabled, click start to resume conversation'
+  } else if (error === 'no-speech') {
+    statusMessage.innerHTML = 'Hmmm I did not hear any speech, click start to resume our conversation'
+  } else {
+    statusMessage.innerHTML = 'Recognition is disabled, click start to resume conversation'
+  }
+
+}
 
 recognition.onaudiostart = () => {
   statusMessage.innerHTML = 'Listening'
@@ -56,17 +68,19 @@ recognition.onaudiostart = () => {
 
 // layout listeners and handlers
 startBtn.onclick = () => {
+  stopConversation = false
   recognition.start()
-  configureLayout("disableRecognition")
 }
 
 stopBtn.onclick = () => {
+  stopConversation = true
   recognition.abort()
   synth.cancel()
-  configureLayout("enableRecognition")
+  statusMessage.innerHTML = 'Conversation Paused'
 }
 
 clearBtn.onclick = () => {
+  stopConversation = true
   recognition.abort()
   synth.cancel()
   clearConversation()
@@ -85,40 +99,7 @@ const handleConversationInit = (event) => {
     Level: levelSelect.value,
     Context: contextSelect.value
   })
-
-  configureLayout("enableRecognition")
 }
-
-const configureLayout = (string) => {
-  switch (string) {
-    case "newConversation": {
-      statusMessage.innerHTML = "click new conversation and wait for me to respond"
-      beginBtn.removeAttribute('disabled')
-      startBtn.setAttribute('disabled', true)
-      stopBtn.setAttribute('disabled', true)
-      clearBtn.setAttribute('disabled', true)
-      break
-    }
-    case "enableRecognition": {
-      statusMessage.innerHTML = "ready to go, click start recognition and wait for me to respond"
-      beginBtn.setAttribute('disabled', true)
-      startBtn.removeAttribute('disabled')
-      stopBtn.setAttribute('disabled', true)
-      clearBtn.setAttribute('disabled', true)
-      break
-    }
-    case "disableRecognition": {
-      beginBtn.setAttribute('disabled', true)
-      startBtn.setAttribute('disabled', true)
-      stopBtn.removeAttribute('disabled')
-      clearBtn.removeAttribute('disabled')
-      break
-    }
-    default: {
-      console.error('something went wrong in the layout switch')
-    }
-  }
-} 
 
 // dialog
 const appendMessage = (text, assistant = false) => {
@@ -134,14 +115,28 @@ const speechSynth = (text) => {
   if ('speechSynthesis' in window) {
     const utterance = new SpeechSynthesisUtterance(text)
     
-    // language for utterance
+    // utterance config here
     // utterance.lang = "hi-IN"
     synth.speak(utterance)
-
+    utterance.onend = () => {
+      if (!stopConversation) recognition.start()
+    }
   } else {
     console.error('web speech api synth not in window')
   }
 }
+
+const dialogResponse = (text) => {
+  statusMessage.innerHTML = 'Speaking'
+  appendMessage(text, true)
+  speechSynth(text)
+}
+
+const dialogInput = (text) => {
+  appendMessage(text)
+  sendTranscription(text)
+}
+
 
 // services
 const sendTranscription = (transcribedText) => {
@@ -153,16 +148,10 @@ const sendTranscription = (transcribedText) => {
     }
   }).then(response => {
     if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status}`);
+      throw new Error(`Network response was not ok: ${response.status}`)
     }
-    return response.json(); // Parse the JSON response
-  }).then(({ assistantReply }) => {
-    // Handle the data received from the server
-    appendMessage(assistantReply, true)
-    speechSynth(assistantReply)
-  }).catch(error => {
-    console.error("Fetch error:", error);
-  });
+    return response.json()
+  }).then(({ assistantReply }) => dialogResponse(assistantReply))
 }
 
 const sendConversationInit = (data) => {
@@ -177,10 +166,7 @@ const sendConversationInit = (data) => {
       throw new Error(`Network response was not ok: ${response.status}`);
     }
     return response.json()
-  }).then(({ assistantReply }) => {
-    appendMessage(assistantReply, true)
-    speechSynth(assistantReply)
-  })
+  }).then(({ assistantReply }) => dialogResponse(assistantReply))
 }
 
 const clearConversation = () => {
@@ -191,5 +177,3 @@ const clearConversation = () => {
     }
   })
 }
-
-configureLayout("newConversation")

@@ -158,7 +158,7 @@ func main() {
 }
 
 func initializeStringTemplate(lang, level, context string) string {
-	tmpl := "I would like you to be my conversation partner so that I can practice my %s %s language skills in a %s context. Please try to sustain role-playing as my conversation partner for the duration of the conversation. Please respond using %s level %s so that I can practice listening."
+	tmpl := "I would like you to be my conversation partner so that I can practice my %s %s language skills in a %s context. Please try to sustain role-playing as my conversation partner for the duration of the conversation. Please respond using %s level %s so that I can practice listening. When you are ready, please ask me a question to begin the conversation"
 	return fmt.Sprintf(tmpl, level, lang, context, level, lang)
 }
 

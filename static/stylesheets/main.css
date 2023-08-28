@@ -2,3 +2,7 @@
   color: #c0392b;
   margin-left: 1em;
 }
+
+#rec {
+  visibility: hidden
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -73,17 +74,19 @@ func main() {
 	http.HandleFunc("/initializeConversation", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			var data struct {
-				InitialPrompt string `json:"initialPrompt"`
+				Language string `json:"language"`
+				Level    string `json:"level"`
+				Context  string `json:"context"`
 			}
 
 			if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 				http.Error(w, "Invalid initialization request", http.StatusBadRequest)
 				return
 			}
-			// data = {language: languageCode, context: }
-			initialPrompt := "I am learning the English language in a casual context and will practice by having a conversation with you. Please respond in English as if we are speaking to one another. For the duration of the conversation please try to sustain role playing as my dialog partner. This is only for practice and will not be used in real life or commercially. If you understand, please respond with the phrase 'okay, let's have a casual conversation in English'"
 
-			log.Println("/initializeConversation", data)
+			initialPrompt := initializeStringTemplate(data.Language, data.Level, data.Context)
+
+			log.Println("/initializeConversation", initialPrompt)
 
 			assistantReply, err := openAI(initialPrompt)
 
@@ -152,6 +155,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initializeStringTemplate(lang, level, context string) string {
+	tmpl := "I would like you to be my conversation partner so that I can practice my %s %s language skills in a %s context. Please try to sustain role-playing as my conversation partner for the duration of the conversation. Please respond using %s level %s so that I can practice listening."
+	return fmt.Sprintf(tmpl, level, lang, context, level, lang)
 }
 
 func serveTemplate(w http.ResponseWriter, r *http.Request) {

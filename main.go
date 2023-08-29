@@ -22,8 +22,7 @@ var (
 	translatedText      []openai.ChatCompletionMessage
 )
 
-// use godot package to load/read the .env file and
-// return the value of the key
+// use godot package to load the .env file
 func goDotEnvVariable(key string) string {
 	err := godotenv.Load(".env")
 

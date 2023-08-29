@@ -1,33 +1,43 @@
 {{define "title"}}static speech{{end}}
 
 {{define "body"}}
-<h1>hello and be heard</h1>
-  <form onsubmit="handleConversationInit(event)">
-    <label for="language-select">Language</label>
-    <select id="language-select"></select>
-    <br>
-    <label for="language-level">Level</label>
-    <select id="language-level">
-      <option value="beginner" selected>Beginner</option>
-      <option value="intermediate">Intermediate</option>
-      <option value="advanced">Advanced</option>
-    </select>
-    <br>
-    <label for="conversation-context">Conversational Context</label>
-    <select id="conversation-context">
-      <option value="business">Business</option>
-      <option value="casual" selected>Casual</option>
-    </select>
-    <br>
-    <button type="submit" id="begin-button">New Conversation</button>
-    <button type="button" id="clear-button">Clear Conversation</button>
-  </form>
-  <div>
+<h1>hello</h1>
+<div class="layout">
+  <div class="left-pane">
+    <form onsubmit="handleConversationInit(event)">
+      <h3>Conversation Params</h3>
+      <label for="native-language">Native Language</label>
+      <select id="native-language"></select>
+      <br>
+      <label for="language-select">Language to Practice</label>
+      <select id="language-select"></select>
+      <br>
+      <label for="language-level">Level</label>
+      <select id="language-level">
+        <option value="beginner" selected>Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+      <br>
+      <label for="conversation-context">Conversational Context</label>
+      <select id="conversation-context">
+        <option value="business">Business</option>
+        <option value="casual" selected>Casual</option>
+      </select>
+      <br>
+      <h3>Conversation Controls</h3>
+      <button type="submit" id="begin-button">New Conversation</button>
+      <button type="button" id="clear-button">Clear Conversation</button>
+    </form>
+    <h3>Speech Recognition</h3>
+    <button type="button" id="start-button">Enable Recognition</button>
+    <button type="button" id="stop-button">Disable Recognition</button>
+  </div>
+  <div class="right-pane">
+    <h3>System Status</h3>
     <p id="status"></p>
+    <h3>Dialog</h3>
+    <div id="dialog"></div>
   </div>
-  <div>
-    <button type="button" id="start-button">Start Recognition</button>
-    <button type="button" id="stop-button">Stop Recognition</button>
-  </div>
-  <div id="dialog"></div>
+</div>
 {{end}}

@@ -1,8 +1,32 @@
+body {
+  overflow: hidden;
+}
+
 .assistant {
-  color: #c0392b;
+  color: red;
   margin-left: 1em;
 }
 
-#rec {
-  visibility: hidden
+.translation {
+  color: blue;
+}
+
+.layout {
+  display: flex;
+}
+
+.left-pane {
+  width: 50%
+}
+
+.right-pane {
+  width: 50%;
+  height: auto;
+}
+
+#dialog {
+  border: 1px solid gray;
+  height: 80%;
+  width: 100%;
+  overflow-y: auto;
 }

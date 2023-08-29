@@ -14,7 +14,13 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-var conversation []openai.ChatCompletionMessage
+// two clients and structs - one for conversation and the other for on demand text translation
+var (
+	conversationClient  *openai.Client
+	conversation        []openai.ChatCompletionMessage
+	textTranslateClient *openai.Client
+	translatedText      []openai.ChatCompletionMessage
+)
 
 // use godot package to load/read the .env file and
 // return the value of the key
@@ -24,13 +30,38 @@ func goDotEnvVariable(key string) string {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-
 	return os.Getenv(key)
 }
 
+// text translation outside of conversation
+func textTranslate(userInput string) (string, error) {
+
+	userMessage := openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleUser,
+		Content: userInput,
+	}
+
+	translatedText = append(translatedText, userMessage)
+
+	resp, err := textTranslateClient.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model:    openai.GPT3Dot5Turbo,
+			Messages: translatedText,
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	assistantMessage := resp.Choices[0].Message
+	translatedText = []openai.ChatCompletionMessage{}
+	return assistantMessage.Content, nil
+}
+
+// conversation
 func openAI(userInput string) (string, error) {
-	token := goDotEnvVariable("GPT_API_KEY")
-	client := openai.NewClient(token)
 
 	userMessage := openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
@@ -39,7 +70,7 @@ func openAI(userInput string) (string, error) {
 
 	conversation = append(conversation, userMessage)
 
-	resp, err := client.CreateChatCompletion(
+	resp, err := conversationClient.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
 			Model:    openai.GPT3Dot5Turbo,
@@ -53,20 +84,28 @@ func openAI(userInput string) (string, error) {
 
 	assistantMessage := resp.Choices[0].Message
 	conversation = append(conversation, assistantMessage)
-	log.Println(assistantMessage.Content)
 
 	return assistantMessage.Content, nil
 }
 
+// this just empties the structs to reset teh conversation
 func clearConversation() {
 	conversation = []openai.ChatCompletionMessage{}
+	translatedText = []openai.ChatCompletionMessage{}
 }
 
+// endpoints defined and served here
 func main() {
+
+	conversationToken := goDotEnvVariable("GPT_API_KEY")
+	conversationClient = openai.NewClient(conversationToken)
+
+	textTranslationToken := goDotEnvVariable("GPT_API_TEXT_TRANSLATE")
+	textTranslateClient = openai.NewClient(textTranslationToken)
+
 	fs := http.FileServer(http.Dir("./static"))
 
 	// endpoints
-	// strip prefix and serve root
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	http.HandleFunc("/", serveTemplate)
@@ -85,8 +124,6 @@ func main() {
 			}
 
 			initialPrompt := initializeStringTemplate(data.Language, data.Level, data.Context)
-
-			log.Println("/initializeConversation", initialPrompt)
 
 			assistantReply, err := openAI(initialPrompt)
 
@@ -107,7 +144,6 @@ func main() {
 
 	// handle user transcription from client
 	http.HandleFunc("/sendTranscription", func(w http.ResponseWriter, r *http.Request) {
-		// if post is recieved at endpoint define structure of incoming data
 		if r.Method == http.MethodPost {
 			var data struct {
 				TranscribedText string `json:"transcribedText"`
@@ -118,9 +154,6 @@ func main() {
 				return
 			}
 
-			log.Println("/sendTranscription", data)
-
-			// send to openAI
 			assistantReply, err := openAI(data.TranscribedText)
 
 			if err != nil {
@@ -138,17 +171,41 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/sendTranslation", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var data struct {
+				TextToTranslate string `json:"textToTranslate"`
+			}
+			// if error
+			if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+				http.Error(w, "Invalid translation request", http.StatusBadRequest)
+				return
+			}
+
+			assistantReply, err := textTranslate(data.TextToTranslate)
+
+			if err != nil {
+				http.Error(w, "Error processing translated text", http.StatusInternalServerError)
+				return
+			}
+
+			response := struct {
+				AssistantReply string `json:"assistantReply"`
+			}{
+				AssistantReply: assistantReply,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}
+	})
+
 	http.HandleFunc("/clearConversation", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			clearConversation()
 		}
-
-		log.Println("conversation cleared")
 	})
 
 	log.Print("Listening on :3000...")
-
-	// openAI("I am practicing business english, will you evalute my text for appropriateness in a business context?")
 
 	err := http.ListenAndServe(":3000", nil)
 
@@ -157,8 +214,9 @@ func main() {
 	}
 }
 
+// template literals are not possible in go
 func initializeStringTemplate(lang, level, context string) string {
-	tmpl := "I would like you to be my conversation partner so that I can practice my %s %s language skills in a %s context. Please try to sustain role-playing as my conversation partner for the duration of the conversation. Please respond using %s level %s so that I can practice listening. When you are ready, please ask me a question to begin the conversation"
+	tmpl := "I would like you to be my conversation partner so that I can practice my %s %s language skills in a %s context. Try to sustain role-playing as my conversation partner for the duration of the conversation. Please respond using %s level %s so that I can practice listening and reading. When you are ready, please ask me a question to begin the conversation"
 	return fmt.Sprintf(tmpl, level, lang, context, level, lang)
 }
 
